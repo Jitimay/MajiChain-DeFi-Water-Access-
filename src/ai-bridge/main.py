@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Maji-Vibe AI Bridge - Blockchain to SMS Gateway
+MajiChain AI Bridge - Blockchain to SMS Gateway
 Listens to blockchain events and sends SMS commands to ESP32 pumps
 """
 

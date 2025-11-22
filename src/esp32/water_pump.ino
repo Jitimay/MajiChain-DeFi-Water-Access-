@@ -1,5 +1,5 @@
 /*
- * Maji-Vibe ESP32 Water Pump Controller
+ * MajiChain ESP32 Water Pump Controller
  * LilyGO T-Call SIM800L with water pump control
  */
 
@@ -32,7 +32,7 @@ void setup() {
   // Initialize modem
   initModem();
   
-  Serial.println("Maji-Vibe Water Pump Ready");
+  Serial.println("MajiChain Water Pump Ready");
 }
 
 void loop() {

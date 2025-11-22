@@ -1,9 +1,9 @@
-# Maji-Vibe: Decentralized Water Broker for Rural Africa
+# MajiChain: Decentralized Water Broker for Rural Africa
 
 **"Turning DeFi into Drinkable Water"**
 
 ## Overview
-Maji-Vibe transforms crypto payments into real-world water access for rural communities with limited connectivity. Using blockchain transactions on basic 2G networks, villagers can buy clean water through transparent, corruption-free distribution.
+MajiChain transforms crypto payments into real-world water access for rural communities with limited connectivity. Using blockchain transactions on basic 2G networks, villagers can buy clean water through transparent, corruption-free distribution.
 
 ## Architecture
 - **Blockchain (Base L2)**: Processes payments

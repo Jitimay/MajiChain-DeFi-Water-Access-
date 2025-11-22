@@ -1,4 +1,4 @@
-// Maji-Vibe Web Interface - Minimal Water Purchase App
+// MajiChain Web Interface - Minimal Water Purchase App
 import { ethers } from 'ethers';
 
 class WaterApp {

@@ -1,4 +1,4 @@
-# AI Development Prompts for Maji-Vibe
+# AI Development Prompts for MajiChain
 
 ## Project Genesis
 **Tool Used**: Claude 3.5 Sonnet via Cursor IDE
