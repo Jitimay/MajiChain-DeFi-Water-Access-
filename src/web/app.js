@@ -11,11 +11,11 @@ const contractABI = [
 ];
 
 const BASE_SEPOLIA_CONFIG = {
-    chainId: '0x507', // 1287 Moonbase Alpha
-    chainName: 'Moonbase Alpha',
-    nativeCurrency: { name: 'DEV', symbol: 'DEV', decimals: 18 },
-    rpcUrls: ['https://rpc.api.moonbase.moonbeam.network'],
-    blockExplorerUrls: ['https://moonbase.moonscan.io']
+    chainId: '0x14A34', // 84532 Base Sepolia
+    chainName: 'Base Sepolia',
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: ['https://sepolia.base.org'],
+    blockExplorerUrls: ['https://sepolia-explorer.base.org']
 };
 
 let provider = null;
@@ -175,7 +175,7 @@ async function deactivatePump() {
 function refreshTelemetry() {
     const randomMessage = statusMessages[Math.floor(Math.random() * statusMessages.length)];
     document.getElementById('telemetry').innerHTML = `
-        NETWORK: MOONBASE ALPHA<br>
+        NETWORK: BASE SEPOLIA (CHAIN ID: 84532)<br>
         CONTRACT: ${contractAddress.slice(0,8)}...${contractAddress.slice(-6)}<br>
         BLOCK HEIGHT: ${Math.floor(Math.random() * 1000000) + 14332217}<br>
         ${randomMessage}
@@ -186,7 +186,7 @@ function updateTelemetry() {
     setInterval(() => {
         const timestamp = new Date().toLocaleTimeString();
         document.getElementById('telemetry').innerHTML = `
-            NETWORK: MOONBASE ALPHA<br>
+            NETWORK: BASE SEPOLIA (84532)<br>
             CONTRACT: DEPLOYED & VERIFIED<br>
             SENSORS: ONLINE<br>
             AI BRIDGE: ACTIVE<br>

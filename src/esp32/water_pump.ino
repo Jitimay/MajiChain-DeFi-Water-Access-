@@ -1,6 +1,6 @@
 /*
- * MajiChain ESP32 Water Pump Controller
- * LilyGO T-Call SIM800L with water pump control
+ * MajiChain ESP32 - SMS Payment Receiver & Pump Controller
+ * Receives SMS payments from rural users, forwards to AI Bridge
  */
 
 #define MODEM_RST            5
@@ -12,7 +12,15 @@
 #define FLOW_SENSOR_PIN      13
 
 #include <SoftwareSerial.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+
 SoftwareSerial SerialAT(MODEM_RX, MODEM_TX);
+
+// AI Bridge connection
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* aiBridgeURL = "http://YOUR_LAPTOP_IP:5000/sms-payment";
 
 volatile int flowPulses = 0;
 unsigned long lastSMSCheck = 0;
@@ -21,33 +29,38 @@ bool pumpActive = false;
 void setup() {
   Serial.begin(115200);
   
-  // Initialize pump control
   pinMode(PUMP_PIN, OUTPUT);
   digitalWrite(PUMP_PIN, LOW);
   
-  // Initialize flow sensor
   pinMode(FLOW_SENSOR_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), flowPulseCounter, FALLING);
   
-  // Initialize modem
   initModem();
+  initWiFi();
   
-  Serial.println("MajiChain Water Pump Ready");
+  Serial.println("MajiChain SMS Payment System Ready");
 }
 
 void loop() {
-  // Check for SMS every 5 seconds
   if (millis() - lastSMSCheck > 5000) {
-    checkSMS();
+    checkForPaymentSMS();
     lastSMSCheck = millis();
   }
   
-  // Monitor pump status
   if (pumpActive) {
     monitorPump();
   }
   
   delay(100);
+}
+
+void initWiFi() {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("WiFi Connected: " + WiFi.localIP().toString());
 }
 
 void initModem() {
@@ -68,7 +81,7 @@ void initModem() {
   delay(1000);
 }
 
-void checkSMS() {
+void checkForPaymentSMS() {
   SerialAT.println("AT+CMGL=\"REC UNREAD\"");
   delay(2000);
   
@@ -77,37 +90,56 @@ void checkSMS() {
     response += SerialAT.readString();
   }
   
-  if (response.indexOf("P") != -1) {
-    processSMSCommand(response);
+  if (response.indexOf("PAY") != -1) {
+    processPaymentSMS(response);
     deleteSMS();
   }
 }
 
-void processSMSCommand(String sms) {
-  int pIndex = sms.indexOf("P");
-  if (pIndex != -1 && pIndex + 3 < sms.length()) {
-    String creditStr = sms.substring(pIndex + 1, pIndex + 3);
-    int credits = creditStr.toInt();
+void processPaymentSMS(String sms) {
+  // Extract payment info: "PAY 1000 PUMP001"
+  int payIndex = sms.indexOf("PAY");
+  if (payIndex == -1) return;
+  
+  String paymentData = sms.substring(payIndex);
+  String phoneNumber = extractPhoneNumber(sms);
+  
+  // Forward to AI Bridge
+  forwardToAIBridge(paymentData, phoneNumber);
+}
+
+String extractPhoneNumber(String sms) {
+  int startIndex = sms.indexOf("+");
+  if (startIndex == -1) return "";
+  
+  int endIndex = sms.indexOf("\"", startIndex);
+  return sms.substring(startIndex, endIndex);
+}
+
+void forwardToAIBridge(String payment, String phone) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(aiBridgeURL);
+    http.addHeader("Content-Type", "application/json");
     
-    if (credits > 0) {
-      activatePump(credits);
+    String payload = "{\"payment\":\"" + payment + "\",\"phone\":\"" + phone + "\"}";
+    
+    int httpCode = http.POST(payload);
+    if (httpCode > 0) {
+      Serial.println("Payment forwarded to AI Bridge: " + String(httpCode));
     }
+    
+    http.end();
   }
 }
 
-void activatePump(int credits) {
-  Serial.println("Activating pump for " + String(credits) + " credits");
+void activatePump(int seconds) {
+  Serial.println("Activating pump for " + String(seconds) + " seconds");
   
   pumpActive = true;
   digitalWrite(PUMP_PIN, HIGH);
   
-  // Run pump for credits * 10 seconds
-  unsigned long pumpDuration = credits * 10000;
-  unsigned long pumpStart = millis();
-  
-  while (millis() - pumpStart < pumpDuration) {
-    delay(100);
-  }
+  delay(seconds * 1000);
   
   digitalWrite(PUMP_PIN, LOW);
   pumpActive = false;
@@ -117,7 +149,6 @@ void activatePump(int credits) {
 }
 
 void monitorPump() {
-  // Monitor flow rate and pump health
   static unsigned long lastFlowCheck = 0;
   
   if (millis() - lastFlowCheck > 1000) {
@@ -131,6 +162,6 @@ void flowPulseCounter() {
 }
 
 void deleteSMS() {
-  SerialAT.println("AT+CMGD=1,4"); // Delete all read SMS
+  SerialAT.println("AT+CMGD=1,4");
   delay(1000);
 }

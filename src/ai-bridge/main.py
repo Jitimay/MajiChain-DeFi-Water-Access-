@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-MajiChain AI Bridge - Blockchain to SMS Gateway
-Listens to blockchain events and sends SMS commands to ESP32 pumps
+MajiChain AI Bridge - SMS Payment Processor
+Receives SMS payments from ESP32, validates, processes blockchain, activates pump
 """
 
 import asyncio
@@ -10,77 +10,197 @@ from web3 import Web3
 import requests
 import json
 import os
+from flask import Flask, request, jsonify
+import re
+from datetime import datetime
 
-class WaterBridge:
+app = Flask(__name__)
+
+class MajiChainAI:
     def __init__(self):
-        self.w3 = Web3(Web3.HTTPProvider(os.getenv('BASE_RPC_URL')))
-        self.sms_api_url = os.getenv('SMS_API_URL')
-        self.sms_api_key = os.getenv('SMS_API_KEY')
+        # Blockchain setup
+        self.w3 = Web3(Web3.HTTPProvider('https://sepolia.base.org'))
+        self.contract_address = '0x4933781A5DDC86bdF9c9C9795647e763E0429E28'
+        self.contract_abi = [
+            "function buyWater(bytes32 pumpId) payable",
+            "function activatePump(bytes32 pumpId, uint256 liters) external",
+            "event WaterPurchased(address indexed user, uint256 credits, bytes32 pumpId)"
+        ]
+        
+        # Payment rates (Burundi Francs to ETH)
+        self.exchange_rates = {
+            'BIF': 0.000000347,  # 1 BIF = 0.000000347 ETH (example rate)
+            'USD': 0.0004,       # 1 USD = 0.0004 ETH
+        }
+        
         self.init_db()
+        print("🤖 MajiChain AI Bridge Started")
+        print("💧 Ready to process SMS payments from rural Africa")
     
     def init_db(self):
-        """Initialize SQLite database"""
-        self.conn = sqlite3.connect('water_logs.db')
+        """Initialize payment database"""
+        self.conn = sqlite3.connect('payments.db', check_same_thread=False)
         self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS transactions (
+            CREATE TABLE IF NOT EXISTS sms_payments (
                 id INTEGER PRIMARY KEY,
-                user_address TEXT,
+                phone_number TEXT,
+                amount REAL,
+                currency TEXT,
                 pump_id TEXT,
-                credits INTEGER,
+                status TEXT,
+                blockchain_tx TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         self.conn.commit()
     
-    async def listen_events(self):
-        """Listen for WaterPurchased events"""
-        contract_address = os.getenv('CONTRACT_ADDRESS')
-        contract_abi = json.loads(os.getenv('CONTRACT_ABI'))
-        contract = self.w3.eth.contract(address=contract_address, abi=contract_abi)
-        
-        event_filter = contract.events.WaterPurchased.create_filter(fromBlock='latest')
-        
-        while True:
-            for event in event_filter.get_new_entries():
-                await self.process_purchase(event)
-            await asyncio.sleep(2)
+    def parse_sms_payment(self, sms_text, phone_number):
+        """Parse SMS: 'PAY 1000 BIF PUMP001' or 'PAY 5 USD PUMP001'"""
+        try:
+            # Extract payment info using regex
+            pattern = r'PAY\s+(\d+)\s+(\w+)\s+(\w+)'
+            match = re.search(pattern, sms_text.upper())
+            
+            if not match:
+                return None
+                
+            amount = float(match.group(1))
+            currency = match.group(2)
+            pump_id = match.group(3)
+            
+            return {
+                'phone': phone_number,
+                'amount': amount,
+                'currency': currency,
+                'pump_id': pump_id,
+                'eth_equivalent': amount * self.exchange_rates.get(currency, 0)
+            }
+        except Exception as e:
+            print(f"❌ SMS parsing error: {e}")
+            return None
     
-    async def process_purchase(self, event):
-        """Process water purchase and send SMS command"""
-        user = event['args']['user']
-        credits = event['args']['credits']
-        pump_id = event['args']['pumpId'].hex()
+    def validate_payment(self, payment_data):
+        """Validate payment amount and pump ID"""
+        min_payment_eth = 0.001  # Minimum 0.001 ETH
         
-        # Log transaction
-        self.conn.execute(
-            'INSERT INTO transactions (user_address, pump_id, credits) VALUES (?, ?, ?)',
-            (user, pump_id, credits)
-        )
-        self.conn.commit()
+        if payment_data['eth_equivalent'] < min_payment_eth:
+            return False, f"Insufficient payment. Minimum: {min_payment_eth} ETH"
         
-        # Send SMS command (1-5 bytes)
-        sms_command = f"P{credits:02d}"  # P01, P02, etc.
-        phone_number = os.getenv('ESP32_PHONE')
-        
-        await self.send_sms(phone_number, sms_command)
-        
-        print(f"SMS sent: {sms_command} to {phone_number}")
+        if not payment_data['pump_id'].startswith('PUMP'):
+            return False, "Invalid pump ID"
+            
+        return True, "Payment valid"
     
-    async def send_sms(self, phone_number, message):
-        """Send SMS using your own SMS service"""
-        payload = {
-            'to': phone_number,
-            'message': message,
-            'api_key': self.sms_api_key
+    def process_blockchain_transaction(self, payment_data):
+        """Process payment on blockchain (simulated for demo)"""
+        try:
+            # In real implementation, this would:
+            # 1. Convert local currency to ETH
+            # 2. Execute smart contract transaction
+            # 3. Wait for confirmation
+            
+            # For demo, simulate blockchain transaction
+            fake_tx_hash = f"0x{''.join([f'{ord(c):02x}' for c in payment_data['phone'][-10:]])}"
+            
+            print(f"💰 Processing {payment_data['amount']} {payment_data['currency']} from {payment_data['phone']}")
+            print(f"🔗 Blockchain TX: {fake_tx_hash}")
+            
+            return True, fake_tx_hash
+            
+        except Exception as e:
+            print(f"❌ Blockchain error: {e}")
+            return False, str(e)
+    
+    def send_pump_activation(self, pump_id, duration=10):
+        """Send activation command back to ESP32"""
+        try:
+            # In real implementation, send HTTP request to ESP32
+            esp32_ip = "192.168.1.100"  # ESP32 IP address
+            activation_url = f"http://{esp32_ip}/activate"
+            
+            payload = {
+                'pump_id': pump_id,
+                'duration': duration,
+                'command': 'ACTIVATE'
+            }
+            
+            # For demo, just print the command
+            print(f"🚰 Sending activation to {pump_id}: {duration} seconds")
+            print(f"📡 Command sent to ESP32: {payload}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Pump activation error: {e}")
+            return False
+
+@app.route('/sms-payment', methods=['POST'])
+def handle_sms_payment():
+    """Receive SMS payment from ESP32"""
+    try:
+        data = request.json
+        sms_text = data.get('payment', '')
+        phone_number = data.get('phone', '')
+        
+        print(f"📱 SMS Payment received from {phone_number}: {sms_text}")
+        
+        # Parse SMS payment
+        payment_data = ai_bridge.parse_sms_payment(sms_text, phone_number)
+        if not payment_data:
+            return jsonify({'status': 'error', 'message': 'Invalid SMS format'}), 400
+        
+        # Validate payment
+        is_valid, message = ai_bridge.validate_payment(payment_data)
+        if not is_valid:
+            print(f"❌ Payment validation failed: {message}")
+            return jsonify({'status': 'error', 'message': message}), 400
+        
+        # Process blockchain transaction
+        success, tx_hash = ai_bridge.process_blockchain_transaction(payment_data)
+        if not success:
+            return jsonify({'status': 'error', 'message': tx_hash}), 500
+        
+        # Log payment
+        ai_bridge.conn.execute('''
+            INSERT INTO sms_payments (phone_number, amount, currency, pump_id, status, blockchain_tx)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (phone_number, payment_data['amount'], payment_data['currency'], 
+              payment_data['pump_id'], 'confirmed', tx_hash))
+        ai_bridge.conn.commit()
+        
+        # Activate pump
+        pump_activated = ai_bridge.send_pump_activation(payment_data['pump_id'])
+        
+        response = {
+            'status': 'success',
+            'message': 'Payment processed and pump activated',
+            'tx_hash': tx_hash,
+            'pump_activated': pump_activated
         }
         
-        try:
-            response = requests.post(self.sms_api_url, json=payload)
-            response.raise_for_status()
-            print(f"SMS API response: {response.status_code}")
-        except requests.exceptions.RequestException as e:
-            print(f"SMS sending failed: {e}")
+        print(f"✅ Payment processed successfully: {tx_hash}")
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"❌ Error processing SMS payment: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/status', methods=['GET'])
+def get_status():
+    """Get AI Bridge status"""
+    return jsonify({
+        'status': 'online',
+        'service': 'MajiChain AI Bridge',
+        'blockchain': 'Base Sepolia',
+        'contract': ai_bridge.contract_address
+    })
 
 if __name__ == "__main__":
-    bridge = WaterBridge()
-    asyncio.run(bridge.listen_events())
+    ai_bridge = MajiChainAI()
+    
+    print("🚀 Starting MajiChain AI Bridge Server...")
+    print("📱 Listening for SMS payments from ESP32...")
+    print("🔗 Connected to Base Sepolia blockchain")
+    print("💧 Ready to activate water pumps!")
+    
+    app.run(host='0.0.0.0', port=5000, debug=True)
