@@ -6,42 +6,35 @@
     <title>MajiChain - DeFi Water Access</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .card { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 8px; }
-        button { background: #007cba; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
-        input { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
-        .status { padding: 10px; margin: 10px 0; border-radius: 4px; background: #f0f8ff; }
+        .container { text-align: center; }
+        button { padding: 15px 30px; font-size: 16px; margin: 10px; cursor: pointer; }
+        .connect-btn { background: #007bff; color: white; border: none; border-radius: 5px; }
+        .buy-btn { background: #28a745; color: white; border: none; border-radius: 5px; }
+        #status { margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+        #purchaseSection { display: none; }
     </style>
 </head>
 <body>
-    <h1>🚰 MajiChain</h1>
-    <p><em>"Turning DeFi into Drinkable Water"</em></p>
-    
-    <div class="card">
-        <h3>Wallet Connection</h3>
-        <button id="connectWallet">Connect MetaMask</button>
-        <p>Address: <span id="walletAddress">Not connected</span></p>
-        <p>Water Credits: <span id="waterCredits">0</span></p>
+    <div class="container">
+        <h1>🚰 MajiChain</h1>
+        <p>Decentralized Water Access for Rural Africa</p>
+        
+        <div id="status">Loading...</div>
+        
+        <button id="connectBtn" class="connect-btn" onclick="connectWallet()" style="display: none;">
+            Connect MetaMask
+        </button>
+        
+        <div id="purchaseSection">
+            <h3>Purchase Water Credits</h3>
+            <p>Price: 0.001 ETH per credit</p>
+            <button class="buy-btn" onclick="buyWater()">
+                Buy Water (0.001 ETH)
+            </button>
+        </div>
     </div>
     
-    <div class="card">
-        <h3>Purchase Water</h3>
-        <input id="pumpId" placeholder="Pump ID (e.g., PUMP001)" value="PUMP001">
-        <input id="amount" type="number" placeholder="Water units" value="1" min="1">
-        <button id="buyWater">Buy Water (0.001 ETH per unit)</button>
-        <div id="status" class="status">Ready to purchase water</div>
-    </div>
-    
-    <div class="card">
-        <h3>How it Works</h3>
-        <ol>
-            <li>Connect your wallet to Base network</li>
-            <li>Enter pump ID and water amount</li>
-            <li>Pay with ETH - transaction goes to blockchain</li>
-            <li>AI bridge detects payment and sends SMS to pump</li>
-            <li>ESP32 receives command and activates water pump</li>
-        </ol>
-    </div>
-
-    <script type="module" src="app.js"></script>
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

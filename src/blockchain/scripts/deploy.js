@@ -1,26 +1,30 @@
-// AI-generated deployment script
+import { ethers } from "hardhat";
+
 async function main() {
+  console.log("Deploying WaterBroker contract...");
+  
   const WaterBroker = await ethers.getContractFactory("WaterBroker");
   const waterBroker = await WaterBroker.deploy();
   
-  await waterBroker.deployed();
+  await waterBroker.waitForDeployment();
   
-  console.log("WaterBroker deployed to:", waterBroker.address);
-  console.log("Network:", network.name);
+  const address = await waterBroker.getAddress();
+  console.log("WaterBroker deployed to:", address);
   
-  // Verify on Basescan if on mainnet
-  if (network.name !== "hardhat") {
-    console.log("Waiting for block confirmations...");
-    await waterBroker.deployTransaction.wait(6);
-    
-    await hre.run("verify:verify", {
-      address: waterBroker.address,
-      constructorArguments: [],
-    });
-  }
+  // Save deployment info
+  const deploymentInfo = {
+    address: address,
+    network: "base-sepolia",
+    deployer: (await ethers.getSigners())[0].address,
+    timestamp: new Date().toISOString()
+  };
+  
+  console.log("Deployment Info:", deploymentInfo);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

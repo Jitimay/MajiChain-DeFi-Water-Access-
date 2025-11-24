@@ -7,14 +7,15 @@ Listens to blockchain events and sends SMS commands to ESP32 pumps
 import asyncio
 import sqlite3
 from web3 import Web3
-from twilio.rest import Client
+import requests
 import json
 import os
 
 class WaterBridge:
     def __init__(self):
         self.w3 = Web3(Web3.HTTPProvider(os.getenv('BASE_RPC_URL')))
-        self.twilio = Client(os.getenv('TWILIO_SID'), os.getenv('TWILIO_TOKEN'))
+        self.sms_api_url = os.getenv('SMS_API_URL')
+        self.sms_api_key = os.getenv('SMS_API_KEY')
         self.init_db()
     
     def init_db(self):
@@ -61,13 +62,24 @@ class WaterBridge:
         sms_command = f"P{credits:02d}"  # P01, P02, etc.
         phone_number = os.getenv('ESP32_PHONE')
         
-        self.twilio.messages.create(
-            body=sms_command,
-            from_=os.getenv('TWILIO_PHONE'),
-            to=phone_number
-        )
+        await self.send_sms(phone_number, sms_command)
         
         print(f"SMS sent: {sms_command} to {phone_number}")
+    
+    async def send_sms(self, phone_number, message):
+        """Send SMS using your own SMS service"""
+        payload = {
+            'to': phone_number,
+            'message': message,
+            'api_key': self.sms_api_key
+        }
+        
+        try:
+            response = requests.post(self.sms_api_url, json=payload)
+            response.raise_for_status()
+            print(f"SMS API response: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"SMS sending failed: {e}")
 
 if __name__ == "__main__":
     bridge = WaterBridge()
