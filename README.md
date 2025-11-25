@@ -69,3 +69,4 @@ Provides transparent, automated, corruption-free clean water distribution for ru
 ## Built with Vibe Coding
 This project extensively uses AI-assisted development. See `prompts.md` and `ai_logs/` for detailed documentation of the AI development process.
 # MajiChain-DeFi-Water-Access-
+# maji-safe
