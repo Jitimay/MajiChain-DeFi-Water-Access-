@@ -10,12 +10,12 @@ const contractABI = [
     "event PumpActivated(bytes32 indexed pumpId, uint256 liters)"
 ];
 
-const BASE_SEPOLIA_CONFIG = {
-    chainId: '0x14A34', // 84532 Base Sepolia
-    chainName: 'Base Sepolia',
-    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-    rpcUrls: ['https://sepolia.base.org'],
-    blockExplorerUrls: ['https://sepolia-explorer.base.org']
+const MOONBASE_ALPHA_CONFIG = {
+    chainId: '0x507', // 1287 Moonbase Alpha
+    chainName: 'Moonbase Alpha',
+    nativeCurrency: { name: 'DEV', symbol: 'DEV', decimals: 18 },
+    rpcUrls: ['https://rpc.api.moonbase.moonbeam.network'],
+    blockExplorerUrls: ['https://moonbase.moonscan.io']
 };
 
 let provider = null;
@@ -77,7 +77,7 @@ async function connectWallet() {
         
         // Check network
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (chainId !== BASE_SEPOLIA_CONFIG.chainId) {
+        if (chainId !== MOONBASE_ALPHA_CONFIG.chainId) {
             await switchToNetwork();
         }
         
@@ -112,13 +112,13 @@ async function switchToNetwork() {
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: BASE_SEPOLIA_CONFIG.chainId }]
+            params: [{ chainId: MOONBASE_ALPHA_CONFIG.chainId }]
         });
     } catch (error) {
         if (error.code === 4902) {
             await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
-                params: [BASE_SEPOLIA_CONFIG]
+                params: [MOONBASE_ALPHA_CONFIG]
             });
         }
     }
@@ -162,17 +162,17 @@ function updatePurchaseButton() {
         buyButton.innerHTML = '🚰 PURCHASE WATER';
         statusDiv.innerHTML = 'SMS PAYMENT CONFIRMED<br>READY FOR BLOCKCHAIN TRANSACTION';
     } else {
-        // Disable button - waiting for SMS
-        buyButton.disabled = true;
-        buyButton.className = 'btn btn-disabled';
-        buyButton.innerHTML = '⏳ WAITING FOR SMS PAYMENT';
-        statusDiv.innerHTML = 'SEND SMS TO: +25766303339<br>FORMAT: PAY 5000 BIF PUMP001';
+        // Enable button for testing (no SMS required)
+        buyButton.disabled = false;
+        buyButton.className = 'btn';
+        buyButton.innerHTML = '🚰 PURCHASE WATER';
+        statusDiv.innerHTML = 'READY FOR BLOCKCHAIN TRANSACTION';
     }
 }
 
 async function buyWater() {
-    if (!contract || !smsPaymentReceived) {
-        document.getElementById('status').innerHTML = 'ERROR: SMS PAYMENT REQUIRED FIRST';
+    if (!contract) {
+        document.getElementById('status').innerHTML = 'ERROR: WALLET NOT CONNECTED';
         return;
     }
     

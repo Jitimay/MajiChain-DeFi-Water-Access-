@@ -18,7 +18,7 @@ from metamask_only import MetaMaskOnly
 
 class MajiChainAI:
     def __init__(self):
-        # Use MOONBASE ALPHA (same as working web UI)
+        # Use MOONBASE ALPHA (same as web UI)
         self.w3 = Web3(Web3.HTTPProvider('https://rpc.api.moonbase.moonbeam.network'))
         self.contract_address = '0x4933781A5DDC86bdF9c9C9795647e763E0429E28'
         
@@ -35,7 +35,7 @@ class MajiChainAI:
         
         self.init_db()
         print("🤖 MajiChain AI Bridge Ready")
-        print("🌙 Using Moonbase Alpha (same as web UI)")
+        print("🔗 Using Base Sepolia (same as web UI)")
         print("🦊 Will auto-confirm MetaMask when you click Buy Water")
     
     def init_db(self):
