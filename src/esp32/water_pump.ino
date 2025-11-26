@@ -11,16 +11,15 @@
 #define PUMP_PIN             2
 #define FLOW_SENSOR_PIN      13
 
-#include <SoftwareSerial.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-SoftwareSerial SerialAT(MODEM_RX, MODEM_TX);
+HardwareSerial SerialAT(1); // Use UART1 for SIM800L
 
 // AI Bridge connection
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
-const char* aiBridgeURL = "http://YOUR_LAPTOP_IP:5000/sms-payment";
+const char* aiBridgeURL = "http://192.168.52.127:5001/process-sms";
 
 volatile int flowPulses = 0;
 unsigned long lastSMSCheck = 0;
@@ -29,8 +28,11 @@ bool pumpActive = false;
 void setup() {
   Serial.begin(115200);
   
+  // CRITICAL: Initialize pump to OFF state FIRST
   pinMode(PUMP_PIN, OUTPUT);
-  digitalWrite(PUMP_PIN, LOW);
+  digitalWrite(PUMP_PIN, LOW);  // Ensure relay is OFF
+  delay(500);  // Give relay time to switch OFF
+  Serial.println("🛑 PUMP FORCED OFF - Relay initialized to LOW");
   
   pinMode(FLOW_SENSOR_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), flowPulseCounter, FALLING);
@@ -72,7 +74,7 @@ void initModem() {
   digitalWrite(MODEM_RST, HIGH);
   digitalWrite(MODEM_POWER_ON, HIGH);
   
-  SerialAT.begin(115200);
+  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   delay(3000);
   
   SerialAT.println("AT");
@@ -122,7 +124,7 @@ void forwardToAIBridge(String payment, String phone) {
     http.begin(aiBridgeURL);
     http.addHeader("Content-Type", "application/json");
     
-    String payload = "{\"payment\":\"" + payment + "\",\"phone\":\"" + phone + "\"}";
+    String payload = "{\"phone\":\"" + phone + "\",\"message\":\"" + payment + "\"}";
     
     int httpCode = http.POST(payload);
     if (httpCode > 0) {
@@ -134,17 +136,19 @@ void forwardToAIBridge(String payment, String phone) {
 }
 
 void activatePump(int seconds) {
-  Serial.println("Activating pump for " + String(seconds) + " seconds");
+  Serial.println("🚰 Activating pump via RELAY for " + String(seconds) + " seconds");
   
   pumpActive = true;
-  digitalWrite(PUMP_PIN, HIGH);
+  digitalWrite(PUMP_PIN, HIGH);  // Turn ON relay
+  Serial.println("⚡ Relay ON - Pump Running");
   
   delay(seconds * 1000);
   
-  digitalWrite(PUMP_PIN, LOW);
+  digitalWrite(PUMP_PIN, LOW);   // Turn OFF relay
   pumpActive = false;
+  Serial.println("🛑 Relay OFF - Pump Stopped");
   
-  Serial.println("Pump deactivated. Flow: " + String(flowPulses) + " pulses");
+  Serial.println("Water dispensed. Flow: " + String(flowPulses) + " pulses");
   flowPulses = 0;
 }
 

@@ -194,11 +194,14 @@ async function buyWater() {
         smsPaymentReceived = false;
         updatePurchaseButton();
         
-        // Notify AI Bridge that blockchain is confirmed
+        // Notify AI Bridge that blockchain is confirmed - this will activate pump
         fetch('http://localhost:5001/blockchain-confirmed', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tx_hash: tx.hash })
+            body: JSON.stringify({ 
+                tx_hash: tx.hash,
+                amount: '0.001'
+            })
         });
         
         // Animate success

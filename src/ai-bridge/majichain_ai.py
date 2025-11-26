@@ -9,6 +9,7 @@ from flask_cors import CORS
 from web3 import Web3
 import sqlite3
 import re
+import requests
 from datetime import datetime
 
 app = Flask(__name__)
@@ -92,6 +93,49 @@ class MajiChainAI:
         
         return True, "Valid payment"
     
+    def activate_esp32_pump(self, esp32_ip, seconds=4):
+        """Send pump activation command to ESP32 - MAX 4 seconds with retry"""
+        try:
+            # Ensure maximum 4 seconds
+            if seconds > 4:
+                seconds = 4
+                print(f"⚠️ Pump time limited to {seconds} seconds maximum")
+            
+            url = f"http://{esp32_ip}/activate-pump"
+            data = {"seconds": seconds}
+            
+            # Retry logic with longer timeout
+            for attempt in range(1, 4):  # 3 attempts
+                try:
+                    print(f"🔄 Pump activation attempt {attempt}/3")
+                    response = requests.post(url, data=data, timeout=15)  # 15 second timeout
+                    
+                    if response.status_code == 200:
+                        print(f"🚰 ESP32 pump activated for {seconds} seconds")
+                        return True
+                    else:
+                        print(f"❌ ESP32 activation failed: {response.status_code}")
+                        
+                except requests.exceptions.Timeout:
+                    print(f"⏱️ Timeout on attempt {attempt}")
+                    if attempt < 3:
+                        print("🔄 Retrying in 2 seconds...")
+                        import time
+                        time.sleep(2)
+                    
+                except Exception as e:
+                    print(f"❌ Connection error on attempt {attempt}: {e}")
+                    if attempt < 3:
+                        import time
+                        time.sleep(2)
+            
+            print("❌ All pump activation attempts failed")
+            return False
+            
+        except Exception as e:
+            print(f"❌ ESP32 connection error: {e}")
+            return False
+    
     def process_blockchain_payment(self, payment_data):
         """Process payment with MetaMask-only automation"""
         try:
@@ -143,21 +187,44 @@ def test_connection():
 
 @app.route('/blockchain-confirmed', methods=['POST'])
 def blockchain_confirmed():
-    """Web UI notifies that blockchain transaction is confirmed"""
-    global current_sms_payment
-    data = request.json
-    
-    print(f"✅ Blockchain confirmed: {data.get('tx_hash')}")
-    
-    # Reset payment status for next SMS
-    current_sms_payment = {
-        'payment_received': False,
-        'phone': '',
-        'amount': '',
-        'blockchain_confirmed': True
-    }
-    
-    return jsonify({'status': 'confirmed'})
+    """Web UI notifies that blockchain transaction is confirmed - activate pump"""
+    try:
+        global current_sms_payment
+        
+        data = request.json
+        tx_hash = data.get('tx_hash', '')
+        amount = data.get('amount', '')
+        
+        print(f"\n🔗 Blockchain transaction confirmed!")
+        print(f"💰 Amount: {amount} ETH")
+        print(f"📝 TX Hash: {tx_hash}")
+        
+        # Update SMS payment status
+        if current_sms_payment:
+            current_sms_payment['blockchain_confirmed'] = True
+        
+        # NOW activate the pump after blockchain confirmation
+        esp32_ip = "192.168.52.80"
+        pump_activated = ai.activate_esp32_pump(esp32_ip, 4)  # 4 seconds max
+        
+        if pump_activated:
+            print(f"🚰 Pump activated for 4 seconds after blockchain confirmation!")
+            return jsonify({
+                'status': 'success',
+                'message': 'Blockchain confirmed and pump activated',
+                'pump_activated': True
+            })
+        else:
+            print(f"❌ Pump activation failed after blockchain confirmation")
+            return jsonify({
+                'status': 'partial_success',
+                'message': 'Blockchain confirmed but pump activation failed',
+                'pump_activated': False
+            })
+            
+    except Exception as e:
+        print(f"❌ Blockchain confirmation error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/process-sms', methods=['POST'])
 def process_sms():
@@ -198,8 +265,11 @@ def process_sms():
             'blockchain_confirmed': False
         }
         
-        print(f"✅ SMS payment received - web UI button will activate")
-        print(f"👤 User must now click 'Purchase Water' in web UI")
+        print(f"✅ SMS payment validated - waiting for blockchain confirmation")
+        
+        # DO NOT activate pump yet - wait for blockchain confirmation
+        print(f"⏳ Pump will activate only after blockchain transaction is confirmed")
+        print(f"👤 User must click 'Purchase Water' in web UI to complete blockchain transaction")
         
         # Log SMS payment
         ai.conn.execute('''
